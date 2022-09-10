@@ -1,0 +1,4 @@
+repository "Arknights Platformer@mashiro507@cloud.cn"
+  path "/"
+    br "/main"
+    co "/main"
