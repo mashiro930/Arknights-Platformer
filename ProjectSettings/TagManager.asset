@@ -3,7 +3,8 @@
 --- !u!78 &1
 TagManager:
   serializedVersion: 2
-  tags: []
+  tags:
+  - PlayerAttack
   layers:
   - Default
   - TransparentFX
@@ -13,9 +14,9 @@ TagManager:
   - UI
   - Ground
   - Player
-  - 
-  - 
-  - 
+  - Enemy
+  - NPC
+  - Trap
   - 
   - 
   - 
@@ -46,6 +47,9 @@ TagManager:
     locked: 0
   - name: Platforms
     uniqueID: 1608326967
+    locked: 0
+  - name: Enemies
+    uniqueID: 3991533321
     locked: 0
   - name: Player
     uniqueID: 523135287

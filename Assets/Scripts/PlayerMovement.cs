@@ -23,19 +23,31 @@ public class PlayerMovement : MonoBehaviour
     public float leaveTime;
 
     [Header("冲刺参数")]
-    public float dashVelocity = 30f;
-    public float dashDuration = 0.3f;
+    public float dashVelocity = 25f;
+    public float dashDuration = 0.35f;
     public float dashCoolDownDuration = 1f;
     public int dashCount = 1;
 
     public float dashTime;
     public float dashCoolDownTime;
 
+    [Header("攻击参数")]
+    public float attackDuration = 0.8f;
+    public float attackCoolDownDuration = 1f;
+
+    public float attackTime;
+    public float responseTime;
+    public float attackResponseTime;
+    public float attackCoolDownTime;
+
+    public bool attackEnable = true;
+
     [Header("状态")]
     private bool isOnGround = false;
     private bool isMove = false;
     private bool isJump = false;
     private bool isDash = false;
+    private bool isAttack = false;
 
     [Header("环境检测")]
     public float leftFootOffsetX = -0.75f;
@@ -45,6 +57,10 @@ public class PlayerMovement : MonoBehaviour
 
     public LayerMask groundLayer;
 
+    [Header("攻击范围")]
+    public GameObject attackArea1;
+    public GameObject attackArea2;
+
     //物理运动
     float xVelocity;
 
@@ -52,7 +68,7 @@ public class PlayerMovement : MonoBehaviour
     bool jumpPressed;
     bool jumpHeld;
     bool dashPressed;
-
+    bool attackPressed;
 
     void Start()
     {
@@ -60,18 +76,19 @@ public class PlayerMovement : MonoBehaviour
         coll = GetComponent<BoxCollider2D>();
         anim = GetComponent<Animator>();
     }
-
     
     void Update()
     {
-        if (Input.GetButtonDown("Dash"))
+        if (Input.GetButtonDown("Dash") && dashCount > 0 && !isAttack)
             dashPressed = true;
         
-        if (Input.GetButtonDown("Jump"))
+        if (Input.GetButtonDown("Jump") && jumpCount > 0 && !isDash)
             jumpPressed = true;
         jumpHeld = Input.GetButton("Jump");
-        
 
+        if (Input.GetButtonDown("Attack") && !isDash)
+            attackPressed = true;
+        
     }
 
     private void FixedUpdate()
@@ -80,10 +97,11 @@ public class PlayerMovement : MonoBehaviour
         PhysicsCheck();
         GroundMovement();
         MidAirMovement();
-        
+        Attack();
+        IsJump();
     }
-
-    void PhysicsCheck()
+    
+    void PhysicsCheck()  //环境检测
     {
         RaycastHit2D leftcheck = Raycast(new Vector2(leftFootOffsetX, footOffsetY) * transform .localScale, Vector2.down, groundDistance, groundLayer);
         RaycastHit2D rightcheck = Raycast(new Vector2(rightFootOffsetX, footOffsetY) * transform.localScale, Vector2.down, groundDistance, groundLayer);
@@ -99,9 +117,9 @@ public class PlayerMovement : MonoBehaviour
             isOnGround = false;
     }
 
-    void GroundMovement()
+    void GroundMovement()  //地面移动
     {
-        if (!isDash)
+        if (!isDash && !isAttack)
         {
             xVelocity = Input.GetAxis("Horizontal");  // -1f, 1f
         
@@ -114,7 +132,7 @@ public class PlayerMovement : MonoBehaviour
         
     }
 
-    void MidAirMovement()
+    void MidAirMovement()  //跳跃
     {
         if (jumpPressed && !isJump && jumpCount == 2 && isOnGround)
         {
@@ -135,8 +153,11 @@ public class PlayerMovement : MonoBehaviour
             if (jumpHeld)
                 rb.AddForce(new Vector2(0f, jumpHoldForce), ForceMode2D.Impulse);
             if (jumpTime < Time.time)
+            {
                 isJump = false;
-            jumpPressed = false;
+                jumpPressed = false;
+            }
+
             if (leaveTime < Time.time && jumpCount == 2)
                 jumpCount--;
             
@@ -149,12 +170,12 @@ public class PlayerMovement : MonoBehaviour
             rb.velocity = new Vector2(xVelocity * speed, jumpVelocity_2);
 
             jumpPressed = false;
-            jumpCount = jumpCount - 2;
+            jumpCount -= 2;
         }
-       
+        
     }
 
-    void Dash()
+    void Dash()  //冲刺
     {
         if (dashPressed && !isDash && dashCoolDownTime < Time.time && dashCount == 1)
         {
@@ -172,15 +193,62 @@ public class PlayerMovement : MonoBehaviour
         else if (isDash)
         {
             if (dashTime < Time.time)
+            {
                 isDash = false;
-
-            dashPressed = false;
+                dashPressed = false;
+            }
         }
 
         IsDash();
     }
 
-    void FlipDirection()
+    void Attack()  //攻击
+    {
+        if (attackPressed && !isAttack && attackCoolDownTime < Time.time)
+        {
+            isAttack = true;
+
+            attackTime = Time.time + attackDuration;
+            attackResponseTime = Time.time + responseTime;
+            attackCoolDownTime = Time.time + attackCoolDownDuration;
+
+            rb.velocity = new Vector2(0f, rb.velocity.y);
+        }
+
+        else if (isAttack)
+        {
+            if (attackResponseTime < Time.time && attackEnable)
+                
+            {   if (transform.localScale.x > 0)
+                {
+                    var attack = AttackRight();
+                    attack.transform.parent = rb.transform;
+                    attack.transform.localPosition = new Vector2(0, 0);
+                    attackEnable = false;
+                }
+                if (transform.localScale.x < 0)
+                {
+                    var attack = AttackLeft();
+                    attack.transform.parent = rb.transform;
+                    attack.transform.localPosition = new Vector2(0, 0);
+                    attackEnable = false;
+                }
+
+            }
+
+
+            if (attackTime < Time.time)
+            {
+                isAttack = false;
+                attackPressed = false;
+                attackEnable = true;
+            }
+        }
+
+        IsAttack();
+    }
+
+    void FlipDirection()  //转向
     {
         if (xVelocity < 0)
             transform.localScale = new Vector2(-1, 1);
@@ -189,7 +257,7 @@ public class PlayerMovement : MonoBehaviour
             transform.localScale = new Vector2(1, 1);
     }
 
-    void IsMove()
+    void IsMove()  //移动动画
     {
         if (!isDash)
         {
@@ -201,14 +269,39 @@ public class PlayerMovement : MonoBehaviour
 
             if (xVelocity == 0)
                 isMove = false;
+            
             anim.SetBool(name: "isMove", value: isMove);
         }
         
     }
 
-    void IsDash()
+    void IsDash()  //冲刺动画
     {
         anim.SetBool(name: "isDash", value: isDash);
+    }
+
+    void IsAttack()  //攻击动画
+    {
+        anim.SetBool(name: "isAttack", value: isAttack);
+    }
+
+    void IsJump()  //攻击动画
+    {
+        anim.SetBool(name: "isOnGround", value: isOnGround);
+    }
+
+    public GameObject AttackRight()
+    {
+        GameObject area = GameObject.Instantiate(attackArea1);
+
+        return area;
+    }
+
+    public GameObject AttackLeft()
+    {
+        GameObject area = GameObject.Instantiate(attackArea2);
+
+        return area;
     }
 
     RaycastHit2D Raycast(Vector2 offset, Vector2 rayDirection, float distance, LayerMask layer)
